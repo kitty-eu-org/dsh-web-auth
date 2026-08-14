@@ -19,14 +19,15 @@ You do **not** need pnpm installed — the install command below runs pnpm 11 vi
 ### 1. Install the package
 
 ```sh
-npx -y pnpm@11 --dir ~/.dsh/profiles/web add -w dsh-web-auth
+cd ~/.dsh/profiles/web && npx -y pnpm@11 add -w dsh-web-auth
 ```
 
 Why this exact command:
 
 - `dsh-web-auth` is a **plugin library, not a CLI** — it has no `bin` and cannot be "run" with `npx`. It is loaded by the cordis loader from `node_modules` by name, so it must be *installed* into the profile with a package manager, which is what `add` does.
-- `npx -y pnpm@11` runs **pnpm 11** without requiring pnpm on your machine. The official dsh declares `packageManager: pnpm@11.7.0`; a locally installed pnpm of a different major operating on the same `node_modules` fails with `ERR_PNPM_UNEXPECTED_STORE` (see Troubleshooting). If you already have pnpm 11 (`npm install -g pnpm@11`), the plain `pnpm --dir ~/.dsh/profiles/web add -w dsh-web-auth` is equivalent.
-- `dsh plugin --profile web add ...` does not work — the profile is a pnpm workspace root and the CLI's add is rejected there. The `-w` flag is required for the same reason.
+- `npx -y pnpm@11` runs **pnpm 11** without requiring pnpm on your machine. The official dsh declares `packageManager: pnpm@11.7.0`; a locally installed pnpm of a different major operating on the same `node_modules` fails with `ERR_PNPM_UNEXPECTED_STORE` (see Troubleshooting). If you already have pnpm 11 (`npm install -g pnpm@11`), the plain `pnpm add -w dsh-web-auth` is equivalent.
+- The `cd` is required: newer pnpm (11.21+) rejects `--workspace-root` unless the *current* directory is inside a workspace, and `--dir` does not satisfy that check.
+- `-w` itself is required: the profile is a pnpm workspace root, and adding to it without `-w` fails with `ERR_PNPM_ADDING_TO_ROOT`. `dsh plugin --profile web add ...` hits the same wall.
 
 ### 2. Configure
 
@@ -74,6 +75,7 @@ Optional: set `DSH_WEB_SESSION_SECRET` to a random string so sessions survive re
 ## Troubleshooting
 
 - **`ERR_PNPM_UNEXPECTED_STORE` when running `pnpm add`** — your `node_modules` was linked by a different pnpm major. Use pnpm 11 (`npm install -g pnpm@11`), which is the official dsh requirement.
+- **`--workspace-root may only be used inside a workspace`** — newer pnpm requires the *current* directory to be inside a workspace for `-w`; `cd ~/.dsh/profiles/web` first, then run the `add` from there (the README command already does this).
 - **Login page does not appear** — the gate is not armed. Check that `dsh-web-auth` is in `~/.dsh/profiles/web/package.json` and that the patch file has no YAML errors.
 - **`/api` answers 403 through a custom host** — the trust fence needs the authority; see "Custom hostname" above.
 - **Port 3080 already in use** — another `dsh web` is running; stop it (`pkill -f "dsh web"`) or pass `--port <other>`.
