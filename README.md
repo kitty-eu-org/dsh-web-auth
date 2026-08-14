@@ -68,16 +68,34 @@ Optional: set `DSH_WEB_SESSION_SECRET` to a random string so sessions survive re
 
 ## Remote access
 
+Three things gate remote use of the GUI: the password gate (yours), HTTPS (required by the browser), and the official `/api` trust fence (Host-header allowlist). All three are covered below.
+
 - **LAN / Tailscale**: change `host` to `'0.0.0.0'` in the `webserver-gated` row above and restart. The `/api` trust fence automatically trusts the machine's own LAN/Tailscale IPs when the server binds `0.0.0.0`. Tailscale traffic is encrypted by WireGuard, so the password stays safe on that path.
-- **Internet**: front the server with TLS — Cloudflare Tunnel or a reverse proxy — and keep the origin bound to `127.0.0.1`. The login page works behind TLS without changes.
-- **Custom hostname / public domain**: pass `--trusted-host <host>` to `dsh web` (or add the authority to the `connection` row's `trustedHosts`), otherwise `/api` answers 403.
+- **Internet — HTTPS is required, not optional**: the browser only exposes `crypto.randomUUID()` in a *secure context* (TLS), and the official GUI calls it (e.g. creating a workspace); a plain `http://<lan-ip>:3080` page crashes with `crypto.randomUUID is not a function`. Front the server with TLS — Cloudflare Tunnel or a reverse proxy — and keep the origin bound to `127.0.0.1`. The login page works behind TLS without changes.
+- **Custom hostname / public domain — the `/api` trust fence**: every `/api` request whose `Host` is neither loopback nor in the trust list is answered 403, so browsing a directory or loading sessions through `https://your.domain` fails until you declare the domain. Add it to the `connection` row in `~/.dsh/profiles/web/cordis.patch.yml`:
+
+  ```yaml
+  - id: connection
+    inject: [webRuntime]
+    config:
+      trustedHosts: !!js ctx.webRuntime.trustedHosts.concat(['your.domain'])
+  ```
+
+  (`--trusted-host your.domain` on the `dsh web` command works too, but must be repeated every start.) Note the `!!js` expression must be a single scalar — array-literal syntax like `!!js [...x, 'y']` fails YAML parsing.
+
+### Known official limitations over non-loopback access
+
+- **Privileged methods stay loopback-pinned.** The official client pins `host.pickDirectory`, `settings.*`, `credentials.*` and friends to loopback even on trusted-host deployments ("until a real authentication layer exists"). Directory *browsing* (`host.listDirectory`) works once the domain is trusted, but the final "open/confirm" step of choosing a workspace directory may still answer 403 — do that step on `127.0.0.1`, then continue remotely.
+- **`crypto.randomUUID` (secure context)** — see "Internet" above; this is an official bug (no feature detection), not something this package can patch.
 
 ## Troubleshooting
 
 - **`ERR_PNPM_UNEXPECTED_STORE` when running `pnpm add`** — your `node_modules` was linked by a different pnpm major. Use pnpm 11 (`npm install -g pnpm@11`), which is the official dsh requirement.
 - **`--workspace-root may only be used inside a workspace`** — newer pnpm requires the *current* directory to be inside a workspace for `-w`; `cd ~/.dsh/profiles/web` first, then run the `add` from there (the README command already does this).
 - **Login page does not appear** — the gate is not armed. Check that `dsh-web-auth` is in `~/.dsh/profiles/web/package.json` and that the patch file has no YAML errors.
-- **`/api` answers 403 through a custom host** — the trust fence needs the authority; see "Custom hostname" above.
+- **`/api` answers 403 through a custom host** — the trust fence needs the authority; see "Custom hostname" above (the `connection` row patch, not `--trusted-host` which resets every start).
+- **Creating a workspace fails with `crypto.randomUUID is not a function`** — the page is not a secure context; access through HTTPS (Cloudflare Tunnel / reverse proxy), never plain `http://<non-loopback-ip>`.
+- **Directory browsing works but "Open" still 403s remotely** — `host.pickDirectory` is a loopback-pinned privileged method in the official client; choose the directory on `127.0.0.1` once, then continue remotely.
 - **Port 3080 already in use** — another `dsh web` is running; stop it (`pkill -f "dsh web"`) or pass `--port <other>`.
 - **Verify your composition without starting the server**: `npx @deepseek-ai/dsh web --dump-config` shows the merged rows — you should see `webserver` marked `disabled: true`, plus `webserver-gated` and `web-auth` inserted.
 - **Official dsh updated** — the webserver fork is a small delta over `@deepseek-ai/dsh-host-webserver` (`registerGate` + upgrade gating). If the official package changes, sync `src/webserver.ts` from upstream and re-run `npm run build` (see `npm run build` below).
