@@ -8,19 +8,25 @@ Everything else (SPA dist serving, `/api` bridge, WebSocket downlinks, trust fen
 
 ## Prerequisites
 
-- **Node.js** `^22.19 || >=24` (the official dsh requirement) and **pnpm 11** on your `PATH` — the official dsh declares `packageManager: pnpm@11.7.0`, and mixing pnpm majors against the same profile breaks its store. Install it with `npm install -g pnpm@11` (or `corepack enable && corepack prepare pnpm@11.7.0 --activate`).
+- **Node.js** `^22.19 || >=24` (the official dsh requirement)
 - The official CLI works at least once: `npx @deepseek-ai/dsh web` (stop it with `Ctrl+C` after it prints the URL line) — this creates your harness home and the `web` profile
 - Your harness home defaults to `~/.dsh` (override with the `DSH_HOME` environment variable); the profile lives at `~/.dsh/profiles/web`
+
+You do **not** need pnpm installed — the install command below runs pnpm 11 via `npx`, matching the pnpm major the official dsh declares. Using a locally installed pnpm of a different major against the same profile produces `ERR_PNPM_UNEXPECTED_STORE` (see Troubleshooting).
 
 ## Quick start
 
 ### 1. Install the package
 
 ```sh
-pnpm --dir ~/.dsh/profiles/web add -w dsh-web-auth
+npx -y pnpm@11 --dir ~/.dsh/profiles/web add -w dsh-web-auth
 ```
 
-> `dsh plugin --profile web add ...` does not work — the profile is a pnpm workspace root and the CLI's add is rejected there. The `-w` flag is required for the same reason.
+Why this exact command:
+
+- `dsh-web-auth` is a **plugin library, not a CLI** — it has no `bin` and cannot be "run" with `npx`. It is loaded by the cordis loader from `node_modules` by name, so it must be *installed* into the profile with a package manager, which is what `add` does.
+- `npx -y pnpm@11` runs **pnpm 11** without requiring pnpm on your machine. The official dsh declares `packageManager: pnpm@11.7.0`; a locally installed pnpm of a different major operating on the same `node_modules` fails with `ERR_PNPM_UNEXPECTED_STORE` (see Troubleshooting). If you already have pnpm 11 (`npm install -g pnpm@11`), the plain `pnpm --dir ~/.dsh/profiles/web add -w dsh-web-auth` is equivalent.
+- `dsh plugin --profile web add ...` does not work — the profile is a pnpm workspace root and the CLI's add is rejected there. The `-w` flag is required for the same reason.
 
 ### 2. Configure
 
