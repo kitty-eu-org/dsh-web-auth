@@ -8,7 +8,7 @@ Everything else (SPA dist serving, `/api` bridge, WebSocket downlinks, trust fen
 
 ## Prerequisites
 
-- **Node.js** `^22.19 || >=24` (the official dsh requirement) and **pnpm** on your `PATH`
+- **Node.js** `^22.19 || >=24` (the official dsh requirement) and **pnpm 11** on your `PATH` — the official dsh declares `packageManager: pnpm@11.7.0`, and mixing pnpm majors against the same profile breaks its store. Install it with `npm install -g pnpm@11` (or `corepack enable && corepack prepare pnpm@11.7.0 --activate`).
 - The official CLI works at least once: `npx @deepseek-ai/dsh web` (stop it with `Ctrl+C` after it prints the URL line) — this creates your harness home and the `web` profile
 - Your harness home defaults to `~/.dsh` (override with the `DSH_HOME` environment variable); the profile lives at `~/.dsh/profiles/web`
 
@@ -67,6 +67,7 @@ Optional: set `DSH_WEB_SESSION_SECRET` to a random string so sessions survive re
 
 ## Troubleshooting
 
+- **`ERR_PNPM_UNEXPECTED_STORE` when running `pnpm add`** — your `node_modules` was linked by a different pnpm major. Use pnpm 11 (`npm install -g pnpm@11`), which is the official dsh requirement.
 - **Login page does not appear** — the gate is not armed. Check that `dsh-web-auth` is in `~/.dsh/profiles/web/package.json` and that the patch file has no YAML errors.
 - **`/api` answers 403 through a custom host** — the trust fence needs the authority; see "Custom hostname" above.
 - **Port 3080 already in use** — another `dsh web` is running; stop it (`pkill -f "dsh web"`) or pass `--port <other>`.
