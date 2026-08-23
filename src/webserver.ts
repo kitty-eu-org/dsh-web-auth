@@ -334,6 +334,16 @@ export class WebServer extends Service {
     for (const transform of this.indexTaps) out = transform(out)
     return out
   }
+
+  /**
+   * renderIndex compat with @deepseek-ai/dsh-host-webserver >= 0.1.1:
+   * frontend-static calls this on every SPA fallback response. The web
+   * composition registers no index-injection rows, so the official
+   * implementation reduces to applyIndexTaps(html).
+   */
+  renderIndex(html: string) {
+    return this.applyIndexTaps(html)
+  }
 }
 
 /**
